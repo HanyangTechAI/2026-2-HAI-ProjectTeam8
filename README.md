@@ -39,13 +39,15 @@ python scripts/verify_data.py data/elliptic      # 모두 OK여야 함 (노드 2
 python -m baselines.xgb_baseline --data-root data/elliptic    # 튜닝 30회 + 시드 5개
 python scripts/collect_results.py                # 요약표
 ```
-`verify_data.py`가 출력하는 분할별 노드 수 표를 아래에 붙여 넣으세요.
+`verify_data.py`를 실제 Elliptic 데이터로 실행해 15개 검사를 모두 통과했습니다 (2026-10-28). 분할별 노드 수:
 
 | split | labeled_nodes | illicit | licit | illicit_ratio |
 |---|---|---|---|---|
-| train (1~29) | (검증 후 기입) | | | |
-| val (30~34) | | | | |
-| test (35~49) | | | | |
+| train (1~29) | 26,381 | 2,871 | 23,510 | 0.1088 |
+| val (30~34) | 3,513 | 591 | 2,922 | 0.1682 |
+| test (35~49) | 16,670 | 1,083 | 15,587 | 0.0650 |
+
+> 구간마다 불법 비율이 다릅니다 (train 10.9% / val 16.8% / test 6.5%). 테스트 구간에서는 불법이 더 드물어 PR-AUC의 기준선(무작위 예측)이 낮고, 검증 구간에서 고른 임계값이 테스트에는 맞지 않을 수 있습니다. 보고서에서 이 점을 함께 해석합니다.
 
 ## GNN 조: 사용법
 ```python
