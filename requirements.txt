@@ -1,0 +1,9 @@
+numpy
+pandas
+scikit-learn
+xgboost
+shap
+pytest
+# GNN 조 (Colab에서는 환경에 맞는 버전이 이미 있을 수 있음)
+torch
+torch-geometric

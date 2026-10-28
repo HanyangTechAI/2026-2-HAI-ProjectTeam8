@@ -1,0 +1,10 @@
+data/*
+!data/.gitkeep
+results/emb/
+__pycache__/
+.pytest_cache/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+source/
+.vscode/
