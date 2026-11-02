@@ -1,7 +1,7 @@
 numpy
 pandas
 scikit-learn
-xgboost
+xgboost>=3.4.1,<3.5
 shap
 pytest
 # GNN 조 (Colab에서는 환경에 맞는 버전이 이미 있을 수 있음)
