@@ -5,7 +5,7 @@ XGBoost vs GCN · GraphSAGE · GAT 비교, 그리고 Skip-GCN 하이브리드. �
 - 계획서: [`docs/프로젝트_계획서.pdf`](docs/프로젝트_계획서.pdf) · 타임라인: [`docs/타임라인.pdf`](docs/타임라인.pdf)
 - 계획서와 코드가 다르면 **이 README와 코드가 우선**입니다 (로더는 PyG가 아니라 원본 CSV를 직접 읽고, 결과 CSV는 `results/metrics/{model}.csv`로 모델별 분리).
 - 일정: 11/1 공통 기반 완료 ✅ → 11/12 모델 3종 구현 → 11/19 합치기 → 11/26 마무리 → 11/29 최종 발표
-- 현재 상태: 데이터 검증과 XGBoost 베이스라인까지 완료. **GNN 조는 아래 [XGBoost 베이스라인 결과](#xgboost-베이스라인-결과)를 넘는지가 비교 기준입니다.**
+- 현재 상태: 데이터 검증, XGBoost 베이스라인, GCN 1차 결과(튜닝 전)까지 완료. **GNN 조는 아래 [XGBoost 베이스라인 결과](#xgboost-베이스라인-결과)를 넘는지가 비교 기준입니다.**
 
 ## 규칙 (모든 조 필수)
 1. 데이터는 `common.data.load_data()`, 평가는 `common.metrics`, 저장은 `common.utils`만 사용합니다. 직접 구현 금지.
@@ -38,6 +38,7 @@ model 이름: `xgb`, `gcn`, `sage`, `gat`, 하이브리드는 `hybrid_gcn` 등. 
 | 환경 | 용도 | xgboost | 비고 |
 |---|---|---|---|
 | Colab (CPU) | **공식 기준선 결과** (`results/`), GNN 학습 | 3.4.1 (Colab pip에 3.4.2가 아직 없음) | `notebooks/colab_xgboost.ipynb` |
+| Colab (T4 GPU) | GCN 학습 (`results/`) | - | `notebooks/colab_gcn.ipynb` |
 
 - `requirements.txt`는 `xgboost>=3.4.1,<3.5`입니다. 환경·버전이 다르면 **같은 코드·시드여도 소수점 둘째 자리쯤 차이**가 날 수 있습니다 (튜닝에서 뽑히는 설정이 달라질 수 있기 때문).
 - **학습·추론 시간은 같은 환경에서 잰 값끼리만 비교합니다.** 보고서 표에는 환경(CPU/GPU 종류)을 반드시 적습니다.
@@ -93,6 +94,55 @@ python scripts/collect_results.py                # 요약표
 | `results/timestep_f1_xgb.csv` | 시간 단계별 F1 |
 | `results/xgb_feature_importance.csv`, `results/xgb_tuning.csv` | 특징 중요도, 튜닝 기록 |
 
+## GCN 결과
+
+테스트 구간(시간 단계 35~49), 시드 0~4 평균 ± 표준편차. 학습·평가 절차는 XGBoost와 같습니다 (Train 학습 + 검증 조기 종료 → Train+Val 재학습 → 테스트 1회 평가). **환경: Colab T4 GPU. 하이퍼파라미터는 계획서 기본값
+
+| 지표 | 임계값 0.5 | 검증 구간 최적 임계값 | 설명 |
+|---|---|---|---|
+| PR-AUC | 0.482 ± 0.160 | 0.482 ± 0.160 | **주 지표.** 임계값과 무관 (XGBoost 0.802) |
+| ROC-AUC | 0.881 ± 0.010 | 0.881 ± 0.010 | 불법이 정상보다 높은 점수를 받을 확률. 보조 지표 (XGBoost 0.937) |
+| Precision | 0.499 ± 0.209 | 0.610 ± 0.229 | 불법이라고 예측한 것 중 진짜 불법의 비율 |
+| Recall | 0.594 ± 0.027 | 0.335 ± 0.121 | 진짜 불법 중 잡아낸 비율 |
+| **F1 (불법)** | **0.523 ± 0.117** | **0.430 ± 0.151** | 정밀도와 재현율의 조화평균 (XGBoost 0.775 / 0.797) |
+
+지표와 임계값의 뜻은 [XGBoost 결과](#xgboost-베이스라인-결과)의 설명과 같습니다.
+
+- 학습 2.8 ± 2.3초 · 추론 0.052초 (T4 GPU, 전체 그래프 1회 추론). 파라미터 14,914개. XGBoost는 환경이 달라 속도를 직접 비교할 수 없습니다.
+- 설정: 2층 GCN(`hidden=64`, 마지막 conv 출력이 64차원 임베딩) + 선형 분류기, `dropout=0.5`, Adam `lr=0.005`, `weight_decay=5e-4`, 최대 300 에폭, 검증 PR-AUC 기준 조기 종료(`patience=30`), 클래스 가중치는 학습 구간 정상/불법 비.
+- 시드별 편차가 큽니다. 시드별 테스트 PR-AUC는 0.374 / 0.320 / 0.642 / 0.409 / 0.664이고, 조기 종료 시점(best_epoch)은 38 / 33 / 176 / 35 / 136으로 갈립니다. 하이퍼파라미터 튜닝 전의 값이라 최종 비교용으로는 아직 쓰지 않습니다.
+
+### GCN 결과 파일 위치
+| 파일 | 내용 |
+|---|---|
+| `results/metrics/gcn.csv` | 시드·분할·임계값별 상세 (`notes`에 best_epoch 기록) |
+| `results/pred/pred_gcn_seed{n}.npy` | 시드별 불법 확률 (오류 분석·하이브리드용) |
+| `results/emb/emb_gcn_seed{n}.npy` | 시드별 64차원 임베딩 (약 50MB씩, **git 제외**, 공유 드라이브 사용) |
+| `results/timestep_f1_gcn.csv` | 시간 단계별 F1 |
+| `results/summary.csv` | XGBoost·GCN 요약 (`scripts/collect_results.py`로 재생성) |
+
+## 모델 비교: XGBoost vs GCN
+
+테스트 구간(시간 단계 35~49), 시드 0~4 평균. 같은 데이터·분할·지표·시드로 평가했습니다. **GCN은 하이퍼파라미터 튜닝 전의 1차 결과**이므로 최종 비교가 아닙니다 (튜닝 후 이 표를 갱신).
+
+| 지표 | XGBoost | GCN | 차이 (GCN − XGBoost) |
+|---|---|---|---|
+| **PR-AUC** (주 지표) | 0.802 ± 0.002 | 0.482 ± 0.160 | −0.320 |
+| ROC-AUC | 0.937 ± 0.002 | 0.881 ± 0.010 | −0.056 |
+| Precision (임계값 0.5) | 0.818 ± 0.041 | 0.499 ± 0.209 | −0.319 |
+| Recall (임계값 0.5) | 0.737 ± 0.001 | 0.594 ± 0.027 | −0.143 |
+| F1 (임계값 0.5) | 0.775 ± 0.018 | 0.523 ± 0.117 | −0.252 |
+| F1 (검증 구간 최적 임계값) | 0.797 ± 0.019 | 0.430 ± 0.151 | −0.367 |
+| 시드별 PR-AUC 범위 | 0.799 ~ 0.804 | 0.320 ~ 0.664 | |
+| 시간 단계 35~42 평균 F1 | 0.885 | 0.415 | −0.470 |
+| 시간 단계 43~49 평균 F1 | 0.034 | 0.012 | −0.022 |
+| 학습 시간 | 5.4초 (Colab CPU) | 2.8초 (Colab T4 GPU) | 환경이 달라 비교 불가 |
+| 추론 시간 | 0.059초 (Colab CPU) | 0.052초 (Colab T4 GPU) | 환경이 달라 비교 불가 |
+
+- 차이는 표에 적힌 값 기준입니다. ± 는 시드 5개의 표준편차입니다.
+- 시간 단계별 F1은 검증 구간 최적 임계값 기준이고, 두 모델 모두 평균을 시드와 단계별로 낸 값입니다 (`results/timestep_f1_xgb.csv`, `results/timestep_f1_gcn.csv`).
+- 속도는 같은 환경(같은 GPU 또는 CPU)에서 다시 재야 비교할 수 있습니다.
+
 ## GNN 조: 사용법
 ```python
 from common.data import load_data, to_pyg          # torch/PyG 필요
@@ -114,8 +164,7 @@ g = to_pyg(d)                           # torch_geometric Data: x(표준화), ed
 python -m models.gcn --data-root data/elliptic --seeds 0 --max-epochs 5     # 빠른 점검
 python -m models.gcn --data-root data/elliptic                              # 시드 0~4 본 학습
 ```
-- Colab: `notebooks/colab_gcn.ipynb` (T4 GPU 권장). 결과는 `results/metrics/gcn.csv`, `results/pred/`, `results/emb/`(git 제외)에 저장됩니다.
-- **GraphSAGE / GAT**: `models/gcn.py`를 복사해 `GCNConv`를 `SAGEConv` / `GATConv`로 바꾸고 `main("sage", ...)` / `main("gat", ...)`로 이름만 바꾸면 됩니다 (GAT는 heads=4, 헤드당 16차원 → 64차원).
+
 - 학습 절차: Train(1~29)으로 학습하고 검증 PR-AUC로 조기 종료 → 같은 에폭 수로 Train+Val(1~34) 재학습 → 테스트 1회 평가 (XGBoost와 동일한 규칙).
 - 하이퍼파라미터는 계획서 4장 기본값(lr 0.005, weight decay 5e-4, 최대 300 에폭, patience 30, dropout 0.5)이고 `--lr`, `--dropout` 등으로 바꿀 수 있습니다.
 
@@ -129,12 +178,4 @@ analysis/      (합치기 단계) shap_compare.py error_analysis.py
 scripts/       verify_data.py, collect_results.py, make_synthetic.py
 tests/         pytest -q  (가짜 Elliptic 형식 데이터로 공통 기반 검증)
 results/       metrics/ pred/ emb/(git 제외)
-```
-
-## 가짜 데이터로 파이프라인 점검
-실제 데이터가 없는 환경에서도 코드가 도는지 확인할 수 있습니다. **성능 수치를 보고서에 쓰면 안 됩니다.**
-```bash
-python scripts/make_synthetic.py data/synthetic
-python scripts/verify_data.py data/synthetic --lenient
-pytest -q
 ```
