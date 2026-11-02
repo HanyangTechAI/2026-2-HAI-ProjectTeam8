@@ -4,7 +4,8 @@ XGBoost vs GCN · GraphSAGE · GAT 비교, 그리고 Skip-GCN 하이브리드. �
 
 - 계획서: [`docs/프로젝트_계획서.pdf`](docs/프로젝트_계획서.pdf) · 타임라인: [`docs/타임라인.pdf`](docs/타임라인.pdf)
 - 계획서와 코드가 다르면 **이 README와 코드가 우선**입니다 (로더는 PyG가 아니라 원본 CSV를 직접 읽고, 결과 CSV는 `results/metrics/{model}.csv`로 모델별 분리).
-- 일정: 11/1 공통 기반 완료 → 11/12 모델 3종 구현 → 11/19 합치기 → 11/26 마무리 → 11/29 최종 발표
+- 일정: 11/1 공통 기반 완료 ✅ → 11/12 모델 3종 구현 → 11/19 합치기 → 11/26 마무리 → 11/29 최종 발표
+- 현재 상태: 데이터 검증과 XGBoost 베이스라인까지 완료. **GNN 조는 아래 [XGBoost 베이스라인 결과](#xgboost-베이스라인-결과)를 넘는지가 비교 기준입니다.**
 
 ## 규칙 (모든 조 필수)
 1. 데이터는 `common.data.load_data()`, 평가는 `common.metrics`, 저장은 `common.utils`만 사용합니다. 직접 구현 금지.
@@ -32,11 +33,11 @@ model 이름: `xgb`, `gcn`, `sage`, `gat`, 하이브리드는 `hybrid_gcn` 등. 
   ```
   (저장 위치는 PyG 버전에 따라 다를 수 있으니 CSV 3개가 어디에 생겼는지 확인하세요.)
 
-## 11/1 전에 할 일: 실제 데이터 검증
+## 공통 기반 검증 (완료) — 재현 방법
 ```bash
 pip install -r requirements.txt
 python scripts/verify_data.py data/elliptic      # 모두 OK여야 함 (노드 203,769 / 불법 4,545 / 정상 42,019 / 미분류 157,205 등)
-python -m baselines.xgb_baseline --data-root data/elliptic    # 튜닝 30회 + 시드 5개
+python -m baselines.xgb_baseline --data-root data/elliptic    # 튜닝 30회 + 시드 5개 (CPU에서 약 1분)
 python scripts/collect_results.py                # 요약표
 ```
 `verify_data.py`를 실제 Elliptic 데이터로 실행해 15개 검사를 모두 통과했습니다 (2026-10-28). 분할별 노드 수:
@@ -48,6 +49,39 @@ python scripts/collect_results.py                # 요약표
 | test (35~49) | 16,670 | 1,083 | 15,587 | 0.0650 |
 
 > 구간마다 불법 비율이 다릅니다 (train 10.9% / val 16.8% / test 6.5%). 테스트 구간에서는 불법이 더 드물어 PR-AUC의 기준선(무작위 예측)이 낮고, 검증 구간에서 고른 임계값이 테스트에는 맞지 않을 수 있습니다. 보고서에서 이 점을 함께 해석합니다.
+
+## XGBoost 베이스라인 결과
+
+테스트 구간(시간 단계 35~49), 시드 0~4 평균 ± 표준편차. 최종 모델은 Train+Val(1~34)로 다시 학습했고, 테스트는 1회만 평가했습니다.
+
+| 지표 | 임계값 0.5 | 검증 구간 최적 임계값 |
+|---|---|---|
+| PR-AUC | 0.798 ± 0.002 | 0.798 ± 0.002 |
+| ROC-AUC | 0.930 ± 0.005 | 0.930 ± 0.005 |
+| Precision | 0.827 ± 0.026 | 0.840 ± 0.040 |
+| Recall | 0.737 ± 0.003 | 0.735 ± 0.005 |
+| **F1 (불법)** | **0.779 ± 0.012** | **0.784 ± 0.016** |
+
+- 학습 0.85초 · 추론 약 5ms (CPU, 내 맥북 기준. **GPU/Colab 수치와 직접 비교하지 말 것**). 환경: xgboost 3.4.2, Apple Silicon.
+- 설정: `max_depth=8, learning_rate=0.1, min_child_weight=5, subsample=0.8, colsample_bytree=1.0`, 학습 구간 정상/불법 비로 `scale_pos_weight`. 튜닝 30회는 검증 PR-AUC 기준(검증 PR-AUC 0.99). 자세한 기록은 `results/xgb_tuning.csv`.
+- 무작위 예측의 PR-AUC 기준선은 테스트 불법 비율인 0.065입니다. 원논문(Weber 2019)의 랜덤포레스트 불법 F1 약 0.8과 비슷한 수준입니다.
+
+**GNN 조가 넘어야 할 기준:** PR-AUC **0.798**, F1 **0.78**. 같은 지표·같은 분할·같은 시드로 비교합니다.
+
+### 관찰한 점 (보고서에 해석 포함 예정)
+1. **검증과 테스트의 격차가 큽니다.** 검증 PR-AUC 0.99 → 테스트 0.80. 시간이 지나며 패턴이 바뀌는 분포 변화(concept drift)를 보여줍니다.
+2. **시간 단계 43부터 성능이 거의 0으로 떨어집니다.** 구간별 F1: 35~42는 0.76~0.96, 43~49는 0.00~0.12 (`results/timestep_f1_xgb.csv`). 원논문도 이 시점 이후의 성능 저하를 보고했습니다. GNN이 이 구간에서 다른 양상을 보이는지가 핵심 비교 포인트입니다.
+3. 임계값을 검증 구간에서 고르면(F1 0.784) 0.5 고정(0.779)보다 아주 조금 높고 표준편차는 비슷합니다. 구간마다 불법 비율이 달라 큰 차이는 없습니다.
+4. 중요도 상위 특징(0부터 시작하는 번호): 52, 45, 39, 66, 89 (`results/xgb_feature_importance.csv`). 특징 의미는 비공개라서 SHAP 비교는 번호 기준으로 합니다.
+
+### 결과 파일 위치
+| 파일 | 내용 |
+|---|---|
+| `results/summary.csv` | 모델·임계값별 평균/표준편차 요약 (`scripts/collect_results.py`로 재생성) |
+| `results/metrics/xgb.csv` | 시드·분할·임계값별 상세 |
+| `results/pred/pred_xgb_seed{n}.npy` | 시드별 불법 확률 (오류 분석·하이브리드용) |
+| `results/timestep_f1_xgb.csv` | 시간 단계별 F1 |
+| `results/xgb_feature_importance.csv`, `results/xgb_tuning.csv` | 특징 중요도, 튜닝 기록 |
 
 ## GNN 조: 사용법
 ```python
