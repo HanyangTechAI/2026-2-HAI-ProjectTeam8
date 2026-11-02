@@ -108,11 +108,22 @@ g = to_pyg(d)                           # torch_geometric Data: x(표준화), ed
 - 검증 구간으로 조기 종료·튜닝·`best_threshold` → Train+Val(1~34) 재학습 → 테스트 1회 평가.
 - 모델 코드는 `models/`에 브랜치(`gcn`, `sage`, `gat`)로 올리고 Pull Request로 합칩니다.
 
+### GCN 실행 (구현 완료)
+`common/train_gnn.py`가 학습·조기 종료·재학습·평가·저장까지 모두 처리합니다. 모델은 `(logits, emb)`만 반환하면 됩니다.
+```bash
+python -m models.gcn --data-root data/elliptic --seeds 0 --max-epochs 5     # 빠른 점검
+python -m models.gcn --data-root data/elliptic                              # 시드 0~4 본 학습
+```
+- Colab: `notebooks/colab_gcn.ipynb` (T4 GPU 권장). 결과는 `results/metrics/gcn.csv`, `results/pred/`, `results/emb/`(git 제외)에 저장됩니다.
+- **GraphSAGE / GAT**: `models/gcn.py`를 복사해 `GCNConv`를 `SAGEConv` / `GATConv`로 바꾸고 `main("sage", ...)` / `main("gat", ...)`로 이름만 바꾸면 됩니다 (GAT는 heads=4, 헤드당 16차원 → 64차원).
+- 학습 절차: Train(1~29)으로 학습하고 검증 PR-AUC로 조기 종료 → 같은 에폭 수로 Train+Val(1~34) 재학습 → 테스트 1회 평가 (XGBoost와 동일한 규칙).
+- 하이퍼파라미터는 계획서 4장 기본값(lr 0.005, weight decay 5e-4, 최대 300 에폭, patience 30, dropout 0.5)이고 `--lr`, `--dropout` 등으로 바꿀 수 있습니다.
+
 ## 구조
 ```
-common/        data.py (로더·분할) / metrics.py (평가) / utils.py (시드·시간·저장)
+common/        data.py (로더·분할) / metrics.py (평가) / utils.py (시드·시간·저장) / train_gnn.py (GNN 공통 학습 루프)
 baselines/     xgb_baseline.py
-models/        (GNN 조) gcn.py sage.py gat.py
+models/        gcn.py ✅ / (GNN 조) sage.py gat.py
 hybrid/        (합치기 단계) skip_gcn.py
 analysis/      (합치기 단계) shap_compare.py error_analysis.py
 scripts/       verify_data.py, collect_results.py, make_synthetic.py

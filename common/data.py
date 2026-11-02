@@ -162,12 +162,15 @@ def to_pyg(data: EllipticData, standardized: bool = True):
     x = data.x_std if standardized else data.x
     if x is None:
         raise ValueError("standardize=True로 load_data()를 호출해야 합니다.")
+    def t(a):  # 읽기 전용 배열 경고를 피하려고 복사해서 변환
+        return torch.from_numpy(np.array(a))
+
     return Data(
-        x=torch.from_numpy(x),
-        edge_index=torch.from_numpy(data.edge_index),
-        y=torch.from_numpy(data.y),
-        time_step=torch.from_numpy(data.time_step),
-        train_mask=torch.from_numpy(data.train_mask),
-        val_mask=torch.from_numpy(data.val_mask),
-        test_mask=torch.from_numpy(data.test_mask),
+        x=t(x),
+        edge_index=t(data.edge_index),
+        y=t(data.y),
+        time_step=t(data.time_step),
+        train_mask=t(data.train_mask),
+        val_mask=t(data.val_mask),
+        test_mask=t(data.test_mask),
     )
