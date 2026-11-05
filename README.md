@@ -5,7 +5,7 @@ XGBoost vs GCN · GraphSAGE · GAT 비교, 그리고 Skip-GCN 하이브리드. �
 - 계획서: [`docs/프로젝트_계획서.pdf`](docs/프로젝트_계획서.pdf) · 타임라인: [`docs/타임라인.pdf`](docs/타임라인.pdf)
 - 계획서와 코드가 다르면 **이 README와 코드가 우선**입니다 (로더는 PyG가 아니라 원본 CSV를 직접 읽고, 결과 CSV는 `results/metrics/{model}.csv`로 모델별 분리).
 - 일정: 11/1 공통 기반 완료 ✅ → 11/12 모델 3종 구현 → 11/19 합치기 → 11/26 마무리 → 11/29 최종 발표
-- 현재 상태: 데이터 검증, XGBoost 베이스라인, GCN 1차 결과(튜닝 전)까지 완료. **GNN 조는 아래 [XGBoost 베이스라인 결과](#xgboost-베이스라인-결과)를 넘는지가 비교 기준입니다.**
+- 현재 상태: 데이터 검증, XGBoost 베이스라인, GCN 1차 결과(튜닝 전)까지 완료. **GNN 조는 아래 [XGBoost 베이스라인 결과](#xgboost-베이스라인-결과)와 비교하는게 목적입니다. 논문에서 말했듯이, 각 gnn모델들의 결과 자체는 XGBoost보다 낮을 것으로 예상. 하이퍼파라미터 튜닝을 하며 각 모델의 성능을 최대한으로 끌러올리는게 우선 목표.**
 
 ## 규칙 (모든 조 필수)
 1. 데이터는 `common.data.load_data()`, 평가는 `common.metrics`, 저장은 `common.utils`만 사용합니다. 직접 구현 금지.
