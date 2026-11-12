@@ -5,6 +5,7 @@ XGBoost vs GCN · GraphSAGE · GAT 비교, 그리고 Skip-GCN 하이브리드. �
 - 계획서: [`docs/프로젝트_계획서.pdf`](docs/프로젝트_계획서.pdf) · 타임라인: [`docs/타임라인.pdf`](docs/타임라인.pdf)
 - 계획서와 코드가 다르면 **이 README와 코드가 우선**입니다 (로더는 PyG가 아니라 원본 CSV를 직접 읽고, 결과 CSV는 `results/metrics/{model}.csv`로 모델별 분리).
 - 일정: 11/1 공통 기반 완료 ✅ → 11/12 모델 3종 구현 → 11/19 합치기 → 11/26 마무리 → 11/29 최종 발표
+- 합치기 방식 결정(11/12): 하이브리드는 **OOF 임베딩**으로 누수를 막고 만든다 → [하이브리드 누수 처리](#하이브리드-누수-처리-oof-임베딩-방식-b)
 - 현재 상태: 데이터 검증, XGBoost 베이스라인, GCN 1차 결과(튜닝 전)까지 완료. **GNN 조는 아래 [XGBoost 베이스라인 결과](#xgboost-베이스라인-결과)와 비교하는게 목적입니다. 논문에서 말했듯이, 각 gnn모델들의 결과 자체는 XGBoost보다 낮을 것으로 예상. 하이퍼파라미터 튜닝을 하며 각 모델의 성능을 최대한으로 끌러올리는게 우선 목표.**
 
 ## 규칙 (모든 조 필수)
@@ -174,6 +175,33 @@ Elliptic 원논문(Weber et al., 2019)는 time step 43무렵에 다크마켓(불
 | **35~42 합계** | 9,983 | 914 | 9.2% |
 | **43~49 합계** | 6,687 | 169 | 2.5% |
 
+## 하이브리드 누수 처리: OOF 임베딩 (방식 B)
+
+> **결정 (11/12):** 하이브리드(GNN 임베딩 + 원본 특징 → XGBoost)는 임베딩을 그대로 쓰지 않고 **OOF(Out-Of-Fold) 임베딩**으로 만든다.
+> 상태: 설계 확정, 코드는 구현 예정 (아래 [구현 계획](#6-구현-계획과-담당)).
+
+### 1. 왜 누수 처리를 해야 하나
+
+하이브리드는 이렇게 만듭니다.
+
+```
+GNN을 학습 → 노드마다 64차원 임베딩을 뽑음 → [원본 165개 | 임베딩 64개]를 XGBoost에 입력
+```
+
+지금 저장되는 임베딩(`emb_{model}_seed{n}.npy`)은 **Train+Val(시간 단계 1~34)의 정답을 보고 학습한 GNN**에서 나옵니다.
+즉 1~34 노드의 임베딩에는 이미 그 노드의 정답이 일부 새겨져 있음.
+
+이 임베딩으로 XGBoost를 학습하면 두 가지 문제가 발생.
+
+| 문제 | 설명 |
+|---|---|
+| ① 학습 때 임베딩이 지나치게 정답 같음 | 학습 노드의 임베딩은 정답을 이미 본 모델이 만든 것이라 라벨과 너무 잘 맞음. XGBoost가 "임베딩만 믿으면 되네"라고 과하게 의존.|
+| ② 테스트 때는 그 효과가 사라짐 | 테스트 노드(35~49)의 임베딩은 정답을 본 적 없는 노드의 것이라 훨씬 덜 정확합니다. 학습 때 본 것과 분포가 달라져서 성능이 떨어지거나, 검증 점수만 부풀려짐. |
+
+결과적으로 **"하이브리드가 XGBoost보다 좋아졌는가?"를 정직하게 판단할 수 없게 됨.**
+이것은 테스트 구간의 정답이 새는 문제가 아니라(규칙 2는 그대로 지켜짐), **학습 데이터 쪽에서 정답이 새는 문제**. 그래서 따로 처리해야 함.
+
+
 ## GNN 조: 사용법
 ```python
 from common.data import load_data, to_pyg          # torch/PyG 필요
@@ -204,9 +232,9 @@ python -m models.gcn --data-root data/elliptic                              # �
 common/        data.py (로더·분할) / metrics.py (평가) / utils.py (시드·시간·저장) / train_gnn.py (GNN 공통 학습 루프)
 baselines/     xgb_baseline.py
 models/        gcn.py ✅ / (GNN 조) sage.py gat.py
-hybrid/        (합치기 단계) skip_gcn.py
+hybrid/        (합치기 단계) make_oof_emb.py (OOF 임베딩) / skip_gcn.py
 analysis/      (합치기 단계) shap_compare.py error_analysis.py
 scripts/       verify_data.py, collect_results.py, make_synthetic.py
 tests/         pytest -q  (가짜 Elliptic 형식 데이터로 공통 기반 검증)
-results/       metrics/ pred/ emb/(git 제외)
+results/       metrics/ pred/ emb/ emb_oof/(둘 다 git 제외)
 ```
