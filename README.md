@@ -156,7 +156,7 @@ python scripts/collect_results.py                # 요약표
 |---|---|
 | `results/metrics/gcn.csv` | 시드·분할·임계값별 상세 (`notes`에 best_epoch 기록) |
 | `results/pred/pred_gcn_seed{n}.npy` | 시드별 불법 확률 (오류 분석·하이브리드용) |
-| `results/emb/emb_gcn_seed{n}.npy` | 시드별 64차원 임베딩 (약 50MB씩, **git 제외**, 공유 드라이브 사용) |
+| `results/emb/emb_gcn_seed{n}.npy` | 시드별 64차원 임베딩 (약 50MB씩). 팀 요청으로 git에 포함(`git add -f`), 같은 파일이 공유 드라이브 `gcn_results_tuned/emb`에도 있음 |
 | `results/timestep_f1_gcn.csv` | 시간 단계별 F1 |
 | `results/summary.csv` | XGBoost·GCN 요약 (`scripts/collect_results.py`로 재생성) |
 | `results/tuning/gcn/grid_p100.csv`, `grid_p30.csv` | 8조합 그리드 요약 (patience 100 / 30) |
