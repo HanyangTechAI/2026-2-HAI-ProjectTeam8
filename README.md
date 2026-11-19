@@ -40,26 +40,9 @@ model 이름: `xgb`, `gcn`, `sage`, `gat`, 하이브리드는 `hybrid_gcn` 등. 
 
 | 환경 | 용도 | xgboost | 비고 |
 |---|---|---|---|
-| Colab (CPU) | **공식 기준선 결과** (`results/`), GNN 학습 | 3.4.1 (Colab pip에 3.4.2가 아직 없음) | `notebooks/colab_xgboost.ipynb` |
 | Colab (T4 GPU) | GCN 학습 (`results/`) | - | `notebooks/colab_gcn.ipynb` |
 
-- `requirements.txt`는 `xgboost>=3.4.1,<3.5`입니다. 환경·버전이 다르면 **같은 코드·시드여도 소수점 둘째 자리쯤 차이**가 날 수 있습니다 (튜닝에서 뽑히는 설정이 달라질 수 있기 때문).
-- **학습·추론 시간은 같은 환경에서 잰 값끼리만 비교합니다.** 보고서 표에는 환경(CPU/GPU 종류)을 반드시 적습니다.
-- GNN 조는 Colab에서 학습합니다 (`torch`, `torch-geometric` 설치). GPU 종류(T4 등)는 결과 `notes`나 보고서에 적어 주세요.
-
-### Colab에서 돌리는 법 (요약)
-1. 구글 드라이브 `내 드라이브/Colab Notebooks/elliptic/`에 CSV 3개를 올립니다.
-2. Colab에서 `notebooks/colab_xgboost.ipynb`를 열고 위에서부터 차례로 실행합니다 (repo가 private이면 GitHub 토큰 필요).
-3. 노트북 실행 결과는 `results_colab/`에 저장되고 드라이브에도 백업됩니다. 공식 결과는 이를 `results/`에 복사한 것입니다.
-
 ## 공통 기반 검증 (완료) — 재현 방법
-```bash
-pip install -r requirements.txt
-python scripts/verify_data.py data/elliptic      # 모두 OK여야 함 (노드 203,769 / 불법 4,545 / 정상 42,019 / 미분류 157,205 등)
-python -m baselines.xgb_baseline --data-root data/elliptic    # 튜닝 30회 + 시드 5개 (CPU에서 약 1분)
-python scripts/collect_results.py                # 요약표
-```
-`verify_data.py`를 실제 Elliptic 데이터로 실행해 15개 검사를 모두 통과했습니다 (2026-10-28). 분할별 노드 수:
 
 | split | labeled_nodes | illicit | licit | illicit_ratio |
 |---|---|---|---|---|
@@ -79,14 +62,6 @@ python scripts/collect_results.py                # 요약표
 | Precision | 0.818 ± 0.041 | 0.874 ± 0.048 | 정밀도. 불법이라고 예측한 것 중 진짜 불법의 비율. 낮으면 오탐(정상을 불법으로 오인)이 많다는 뜻 |
 | Recall | 0.737 ± 0.001 | 0.733 ± 0.003 | 재현율. 진짜 불법 중 모델이 잡아낸 비율. 낮으면 놓치는 불법이 많다는 뜻 |
 | **F1 (불법)** | **0.775 ± 0.018** | **0.797 ± 0.019** | 정밀도와 재현율의 조화평균. 둘 다 높아야 높음 |
-
-- **임계값**은 "불법 확률이 얼마 이상이면 불법으로 판정할지"의 기준입니다. `0.5`는 고정값이고, `검증 구간 최적`은 검증 구간(30~34)에서 F1이 가장 높았던 값을 골라 테스트에 그대로 적용한 것입니다 (테스트에서는 다시 고르지 않음). PR-AUC와 ROC-AUC는 임계값과 무관해서 두 열이 같습니다.
-- **±**는 시드 5개(0~4) 결과의 표준편차입니다. 작을수록 결과가 안정적입니다.
-- 학습 5.4초 · 추론 0.059초 (Colab CPU). 속도 비교는 같은 환경에서 잰 값끼리만 합니다.
-- 설정: `max_depth=8, learning_rate=0.1, min_child_weight=5, subsample=1.0, colsample_bytree=0.7`, 학습 구간 정상/불법 비로 `scale_pos_weight`. 튜닝 30회는 검증 PR-AUC 기준(검증 PR-AUC 0.99). 자세한 기록은 `results/xgb_tuning.csv`.
-- 무작위 예측의 PR-AUC 기준선은 테스트 불법 비율인 0.065입니다. 원논문(Weber 2019)의 랜덤포레스트 불법 F1 약 0.8과 비슷한 수준입니다.
-
-**GNN 조가 넘어야 할 기준:** PR-AUC **0.802**, F1 **0.78~0.80**. 같은 지표·같은 분할·같은 시드로 비교합니다.
 
 ### 결과 파일 위치
 | 파일 | 내용 |
@@ -141,98 +116,6 @@ python scripts/collect_results.py                # 요약표
 | 7 | 0.005 | 0.3 | 5e-4 | 0.8765 | 0.0156 | 0.8198 | 0.0510 |
 | 8 | 0.005 | 0.3 | 1e-3 | 0.8739 | 0.0034 | 0.8118 | 0.0515 |
 
-
-### GCN 결과 파일 위치
-| 파일 | 내용 |
-|---|---|
-| `results/metrics/gcn.csv` | 시드·분할·임계값별 상세 (`notes`에 best_epoch 기록) |
-| `results/pred/pred_gcn_seed{n}.npy` | 시드별 불법 확률 (오류 분석·하이브리드용) |
-| `results/emb/emb_gcn_seed{n}.npy` | 시드별 64차원 임베딩 (약 50MB씩). 팀 요청으로 git에 포함(`git add -f`), 같은 파일이 공유 드라이브 `gcn_results_tuned/emb`에도 있음 |
-| `results/timestep_f1_gcn.csv` | 시간 단계별 F1 |
-| `results/summary.csv` | XGBoost·GCN 요약 (`scripts/collect_results.py`로 재생성) |
-| `results/tuning/gcn/grid_p100.csv`, `grid_p30.csv` | 8조합 그리드 요약 (patience 100 / 30) |
-| `results/tuning/gcn/patience_p30_vs_p100_do0.3.csv` | patience 30 vs 100 비교 (조합 `lr 0.01 / dropout 0.3 / wd 1e-3`) |
-| `notebooks/colab_gcn_tune.ipynb` | 튜닝·최종 학습 Colab 노트북 |
-
-## 모델 비교: XGBoost vs GCN
-
-테스트 구간(시간 단계 35~49), 시드 0~4 평균. 같은 데이터·분할·지표·시드로 평가했습니다. **GCN은 하이퍼파라미터 튜닝 후 결과(patience 100)** 입니다. 다른 모델과 비교할 때는 조기 종료 patience 설정이 같은 조건인지 확인하세요. 
-
-Elliptic 원논문(Weber et al., 2019)는 time step 43무렵에 다크마켓(불법 거래 시장)이 폐쇄되는 일이 있었다고함. 그 뒤로 학습된 모델들이 새로운 불법 패턴을 잡아내지 못 할 가능성이 있기에, 평가를 35-42와 43-49로 나누어서 결과를 출력함.
-
-| 지표 | XGBoost | GCN | 차이 (GCN − XGBoost) |
-|---|---|---|---|
-| **PR-AUC** (주 지표) | 0.802 ± 0.002 | 0.662 ± 0.024 | −0.140 |
-| ROC-AUC | 0.937 ± 0.002 | 0.888 ± 0.007 | −0.048 |
-| Precision (임계값 0.5) | 0.818 ± 0.041 | 0.724 ± 0.063 | −0.093 |
-| Recall (임계값 0.5) | 0.737 ± 0.001 | 0.590 ± 0.017 | −0.147 |
-| F1 (임계값 0.5) | 0.775 ± 0.018 | 0.649 ± 0.026 | −0.126 |
-| F1 (검증 구간 최적 임계값) | 0.797 ± 0.019 | 0.595 ± 0.025 | −0.202 |
-| 시드별 PR-AUC 범위 | 0.799 ~ 0.804 | 0.626 ~ 0.693 | |
-| 시간 단계 35~42 평균 F1 | 0.885 | 0.596 | −0.289 |
-| 시간 단계 43~49 평균 F1 | 0.034 | 0.025 | −0.009 |
-| 시간 단계 35~42 PR-AUC | 0.921 ± 0.001 | 0.782 ± 0.019 | −0.139 |
-| 시간 단계 43~49 PR-AUC | 0.046 ± 0.001 | 0.040 ± 0.004 | −0.006 |
-| 학습 시간 | 5.4초 (Colab CPU) | 6.2초 (Colab L4 GPU) | 환경이 달라 비교 불가 |
-| 추론 시간 | 0.059초 (Colab CPU) | 0.050초 (Colab L4 GPU) | 환경이 달라 비교 불가 |
-
-- **43~49 구간은 두 모델 모두 사실상 구분 능력이 없음.** Elliptic 원논문(Weber et al., 2019)는 time step 43무렵에 다크마켓(불법 거래 시장)이 폐쇄되는 일이 있었다고함. 그 뒤로 학습된 모델들이 새로운 불법 패턴을 잡아내지 못 할 가능성이 있기에, 평가를 35-42와 43-49로 나누어서 결과를 출력함. >> 결과값은 35-42 구간으로 해석
-
-
-### 테스트 구간 시간 단계별 불법 거래 수
-
-라벨이 있는 노드 기준입니다. 43~46 단계는 불법이 아주 적어(45: 5건, 46: 2건) F1 같은 지표가 건수 몇 개에 크게 흔들립니다. 하지만 **48~49 단계는 불법이 36건, 56건(7.6%, 11.8%)으로 충분한데도 F1이 거의 0**이므로, 43 이후의 성능 붕괴는 건수 부족만이 아니라 거래 패턴 자체의 변화(분포 변화)가 주된 원인으로 보입니다.
-
-| 시간 단계 | 라벨 있는 노드 | 불법 | 불법 비율 |
-|---|---|---|---|
-| 35 | 1,341 | 182 | 13.6% |
-| 36 | 1,708 | 33 | 1.9% |
-| 37 | 498 | 40 | 8.0% |
-| 38 | 756 | 111 | 14.7% |
-| 39 | 1,183 | 81 | 6.8% |
-| 40 | 1,211 | 112 | 9.2% |
-| 41 | 1,132 | 116 | 10.2% |
-| 42 | 2,154 | 239 | 11.1% |
-| 43 | 1,370 | 24 | 1.8% |
-| 44 | 1,591 | 24 | 1.5% |
-| 45 | 1,221 | 5 | 0.4% |
-| 46 | 712 | 2 | 0.3% |
-| 47 | 846 | 22 | 2.6% |
-| 48 | 471 | 36 | 7.6% |
-| 49 | 476 | 56 | 11.8% |
-| **35~42 합계** | 9,983 | 914 | 9.2% |
-| **43~49 합계** | 6,687 | 169 | 2.5% |
-
-## GAT 결과 (임베딩만 반영, 지표 반영 대기)
-
-GAT 조 확인: **다른 GNN(GCN, SAGE)과 같은 설정으로 학습했습니다.**
-
-| 항목 | 값 |
-|---|---|
-| 구조 | 2층 GATConv + 선형 분류기, 마지막 conv 출력 = 64차원 임베딩 (계획서 사양: 4헤드 × 16차원) |
-| 학습 규칙 | patience 100, 최대 500 에폭, Adam, 클래스 가중치 `[1, 정상/불법]` (GCN, SAGE와 동일) |
-| 절차 | Train(1~29) 학습 + 검증 조기 종료 → Train+Val(1~34) 재학습 → 테스트 1회 평가 |
-| 시드 | 0~4 |
-
-현재 저장소에 있는 것과 없는 것:
-
-| 파일 | 상태 |
-|---|---|
-| `results/emb/emb_gat_seed0~4.npy` | ✅ 반영됨 (PR #3). **Git LFS**로 올라가 있어서 받으려면 `git lfs install` 후 `git lfs pull`이 필요합니다 (파일당 약 50MB) |
-| `models/gat.py`, Colab 노트북 | ❌ 미반영 |
-| `results/metrics/gat.csv`, `results/pred/pred_gat_seed*.npy`, `results/timestep_f1_gat.csv` | ❌ 미반영 |
-| 최종 하이퍼파라미터(lr, dropout, weight decay)와 튜닝 방식 | ❌ 미기재 |
-
-지표 파일이 없으면 아래 비교표에 GAT를 넣을 수 없고, 임베딩이 어떤 실행에서 나온 것인지도 확인할 수 없습니다. **GAT 조가 채울 것:**
-- [ ] `models/gat.py`와 Colab 노트북 푸시
-- [ ] 임베딩과 **같은 실행**의 `metrics`, `pred`, `timestep_f1` 푸시 (시드 0~4)
-- [ ] 이 섹션의 아래 표를 채우고, 사용한 하이퍼파라미터와 튜닝 방식(GCN, SAGE처럼 검증 PR-AUC로만 선택) 기입
-
-| 지표 (테스트 35~49, 시드 0~4 평균 ± 표준편차) | 임계값 0.5 | 검증 최적 |
-|---|---|---|
-| PR-AUC | (반영 후 기입) | (반영 후 기입) |
-| F1 | (반영 후 기입) | (반영 후 기입) |
-
 ## 하이브리드 누수 처리: OOF 임베딩 (방식 B)
 
 ### 1. 왜 누수 처리를 해야 하나
@@ -264,16 +147,7 @@ GNN을 학습 → 노드마다 64차원 임베딩을 뽑음 → [원본 165개 |
 4. 폴드마다 GNN을 따로 학습하면 임베딩의 좌표축이 서로 달라집니다. 그래서 블록 k의 **라벨 없는 노드(y=2)** 로 "폴드 임베딩 → 기준 임베딩"의 회전·크기·이동(Procrustes 정렬)을 구해 블록 k 전체에 적용합니다. 정렬에 정답은 쓰이지 않습니다.
 5. 테스트 구간(35~49) 노드는 정답을 본 적 없는 노드이므로 기준 임베딩(저장된 전체 재학습 GNN의 임베딩)을 그대로 씁니다.
 
-```bash
-python -m hybrid.make_oof_emb --model gcn --lr 0.01 --dropout 0.5 --weight-decay 5e-4 --metrics-csv results/metrics/gcn.csv   # → results/emb_oof/
-python -m hybrid.skip_gcn --emb-models gcn --emb-kind oof                                                                 # → hybrid_gcn
-```
-개념을 코드로 따라가 보려면 `notebooks/colab_oof_explained.ipynb`, 5시드 본 실험은 `notebooks/colab_hybrid.ipynb`입니다. 정답이 새지 않는지는 `tests/test_oof.py`가 "블록 k의 라벨을 전부 뒤집어도 블록 k의 OOF 임베딩이 그대로인지"로 검사합니다.
-
 ### 3. GCN 하이브리드 결과 (시드 0~4)
-
-> **실행 환경 (임시본):** 클라우드 CPU, xgboost 3.4.1(공식 Colab 베이스라인과 같은 버전), 표준화 피처. 아래 세 결과(`xgb_check`·`hybrid_gcn_naive`·`hybrid_gcn`)는 모두 같은 환경에서 나온 숫자입니다. 환경에 따라 누수 있는 버전은 0.713~0.724로 흔들렸습니다. **보고서용 최종 숫자는 Colab 단일 환경 재실행(`notebooks/colab_hybrid.ipynb`)으로 확정하고 이 표를 갱신합니다.**
-> XGBoost 설정은 베이스라인 1등 설정으로 고정, 입력만 다릅니다. GCN은 튜닝 후 설정(lr 0.01, dropout 0.5, weight decay 5e-4).
 
 **테스트 PR-AUC (35~49, 시드 평균 ± 표준편차)**
 
@@ -305,46 +179,7 @@ python -m hybrid.skip_gcn --emb-models gcn --emb-kind oof                       
 
 **임베딩 vs 원본 피처의 기여 (XGBoost gain 비중, 시드 평균):** 누수 있음 임베딩 91% / 원본 9%, OOF 임베딩 74% / 원본 26%.
 
-**해석**
-- **누수의 증상이 그대로 보입니다.** 누수 있는 임베딩은 검증 점수를 부풀리고(0.9894 → 0.9980) 테스트는 0.076 떨어뜨립니다. XGBoost가 임베딩에 91%나 의존한 뒤 정답을 못 본 테스트 노드에서는 그 힌트가 없어서 재현율이 0.737 → 0.619로 내려갑니다.
-- **OOF로 막으면 검증 부풀림이 사라지고 테스트가 베이스라인 수준으로 돌아옵니다** (0.7244 → 0.8041).
-- **OOF가 베이스라인보다 확실히 높다고는 말할 수 없습니다.** 시드 짝 비교 차이는 +0.0036 ± 0.0050(5시드 중 4개에서 높음, 대응 t검정 p=0.18)이라 통계적으로는 동급입니다. F1도 같은 방향이지만(검증 최적 임계값 +0.015, 5시드 중 4개) 시드 5개로는 구분하기 어렵습니다.
-- 43~49 구간은 불법이 169건뿐이고 시간에 따른 분포 변화로 모든 입력에서 0.04~0.05로 낮습니다.
-- 임베딩이 gain의 74%를 차지하는데도 점수가 오르지 않는 점은, 임베딩이 원본 피처가 이미 가진 정보를 다시 표현했을 가능성을 시사합니다 (추가 확인 필요, `--mode only` 대조군과 SAGE·GAT 비교 예정).
 
-**OOF 진단 (`results/oof_report_gcn.csv`):** 정렬 후 기준 임베딩과의 평균 코사인 유사도는 라벨 없는 노드 0.84~0.94(정렬 전 0.78~0.84), 정렬에 쓰이지 않은 라벨 노드 0.84~0.95입니다. 폴드 모델이 자기가 못 본 노드를 예측한 OOF PR-AUC는 시드별 0.841~0.881입니다.
-
-
-## GNN 조: 사용법
-```python
-from common.data import load_data, to_pyg          # torch/PyG 필요
-from common.metrics import evaluate, best_threshold, evaluate_by_timestep
-from common.utils import set_seed, Timer, save_rows, save_array
-
-d = load_data("data/elliptic")          # standardize=True → d.x_std (GNN 입력), d.x (원본)
-g = to_pyg(d)                           # torch_geometric Data: x(표준화), edge_index(무방향), y, time_step, train/val/test_mask
-```
-- 손실·평가는 `train_mask` / `val_mask` / `test_mask` 노드만 사용 (미분류 노드는 이웃으로만 쓰임).
-- 클래스 가중치는 `[1, (학습 구간 정상 수)/(학습 구간 불법 수)]` (XGBoost와 동일).
-- 모델은 `(logits, emb)`를 반환하고 임베딩은 64차원으로 통일합니다 (계획서 4장).
-- 검증 구간으로 조기 종료·튜닝·`best_threshold` → Train+Val(1~34) 재학습 → 테스트 1회 평가.
-- 모델 코드는 `models/`에 브랜치(`gcn`, `sage`, `gat`)로 올리고 Pull Request로 합칩니다.
-
-### GCN 실행 (구현 완료)
-`common/train_gnn.py`가 학습·조기 종료·재학습·평가·저장까지 모두 처리합니다. 모델은 `(logits, emb)`만 반환하면 됩니다.
-```bash
-python -m models.gcn --data-root data/elliptic --seeds 0 --max-epochs 5     # 빠른 점검
-python -m models.gcn --data-root data/elliptic                              # 시드 0~4 본 학습
-```
-
-- 학습 절차: Train(1~29)으로 학습하고 검증 PR-AUC로 조기 종료 → 같은 에폭 수로 Train+Val(1~34) 재학습 → 테스트 1회 평가 (XGBoost와 동일한 규칙).
-- 하이퍼파라미터는 계획서 4장 기본값(lr 0.005, weight decay 5e-4, 최대 300 에폭, patience 30, dropout 0.5)이고 `--lr`, `--dropout` 등으로 바꿀 수 있습니다.
-- 코드의 기본값은 위 기본값 그대로입니다. **튜닝 후 최종 결과(GCN 결과 섹션)는 아래 인자로 재현합니다.**
-```bash
-python -m models.gcn --data-root data/elliptic --lr 0.01 --dropout 0.5 --weight-decay 5e-4 --patience 100 --max-epochs 500
-```
-
-### 하이브리드 실행 (GCN 하이브리드 구현 완료)
 
 
 
