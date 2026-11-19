@@ -235,7 +235,7 @@ XGBoost 원본만 / 하이브리드 3종에 `TreeExplainer`를 적용해, 테스
 | `results/shap/sage/top20.csv`, `feature_importance.csv` | 모델별 피처 기여도 (시드 평균, 순위 포함) |
 | `results/shap/sage/group_share.png`, `top20.png` | 그래프 (발표 자료용) |
 
-OOF 임베딩(`oofemb_sage_seed{n}.npy`, 시드당 52MB)은 git에 포함하지 않았습니다. `python -m hybrid.skip_gcn --gnn sage`로 다시 만들 수 있고, 같은 시드면 같은 값이 나옵니다.
+OOF 임베딩(`oofemb_sage_seed{n}.npy`, 시드당 52MB)은 git에 포함하지 않았습니다. `python -m hybrid.skip_gcn --gnn sage`로 다시 만들 수 있습니다 (시드는 고정되지만, 실행 환경(CPU/GPU)이 다르면 GNN 결과가 소수점 수준에서 달라질 수 있습니다).
 
 ## 모델 비교: XGBoost vs GCN
 
