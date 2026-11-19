@@ -6,6 +6,7 @@ XGBoost vs GCN · GraphSAGE · GAT 비교, 그리고 Skip-GCN 하이브리드. �
 - 계획서와 코드가 다르면 **이 README와 코드가 우선**입니다 (로더는 PyG가 아니라 원본 CSV를 직접 읽고, 결과 CSV는 `results/metrics/{model}.csv`로 모델별 분리).
 - 일정: 11/1 공통 기반 완료 ✅ → 11/12 모델 3종 구현 → 11/19 합치기 → 11/26 마무리 → 11/29 최종 발표
 - 합치기 방식 결정(11/12): 하이브리드는 **OOF 임베딩**으로 누수를 막고 만든다 → [하이브리드 누수 처리](#하이브리드-누수-처리-oof-임베딩-방식-b)
+- GAT: 임베딩만 반영됨(Git LFS), 지표·코드는 반영 대기 → [GAT 결과](#gat-결과-임베딩만-반영-지표-반영-대기)
 - 현재 상태: 데이터 검증, XGBoost 베이스라인, GCN 1차 결과(튜닝 전)까지 완료. **GNN 조는 아래 [XGBoost 베이스라인 결과](#xgboost-베이스라인-결과)와 비교하는게 목적입니다. 논문에서 말했듯이, 각 gnn모델들의 결과 자체는 XGBoost보다 낮을 것으로 예상. 하이퍼파라미터 튜닝을 하며 각 모델의 성능을 최대한으로 끌러올리는게 우선 목표.**
 
 ## 규칙 (모든 조 필수)
@@ -175,7 +176,37 @@ Elliptic 원논문(Weber et al., 2019)는 time step 43무렵에 다크마켓(불
 | **35~42 합계** | 9,983 | 914 | 9.2% |
 | **43~49 합계** | 6,687 | 169 | 2.5% |
 
-## 하이브리드 누수 처리: OOF 임베딩 (방식 B)
+## GAT 결과 (임베딩만 반영, 지표 반영 대기)
+
+GAT 조 확인: **다른 GNN(GCN, SAGE)과 같은 설정으로 학습했습니다.**
+
+| 항목 | 값 |
+|---|---|
+| 구조 | 2층 GATConv + 선형 분류기, 마지막 conv 출력 = 64차원 임베딩 (계획서 사양: 4헤드 × 16차원) |
+| 학습 규칙 | patience 100, 최대 500 에폭, Adam, 클래스 가중치 `[1, 정상/불법]` (GCN, SAGE와 동일) |
+| 절차 | Train(1~29) 학습 + 검증 조기 종료 → Train+Val(1~34) 재학습 → 테스트 1회 평가 |
+| 시드 | 0~4 |
+
+현재 저장소에 있는 것과 없는 것:
+
+| 파일 | 상태 |
+|---|---|
+| `results/emb/emb_gat_seed0~4.npy` | ✅ 반영됨 (PR #3). **Git LFS**로 올라가 있어서 받으려면 `git lfs install` 후 `git lfs pull`이 필요합니다 (파일당 약 50MB) |
+| `models/gat.py`, Colab 노트북 | ❌ 미반영 |
+| `results/metrics/gat.csv`, `results/pred/pred_gat_seed*.npy`, `results/timestep_f1_gat.csv` | ❌ 미반영 |
+| 최종 하이퍼파라미터(lr, dropout, weight decay)와 튜닝 방식 | ❌ 미기재 |
+
+지표 파일이 없으면 아래 비교표에 GAT를 넣을 수 없고, 임베딩이 어떤 실행에서 나온 것인지도 확인할 수 없습니다. **GAT 조가 채울 것:**
+- [ ] `models/gat.py`와 Colab 노트북 푸시
+- [ ] 임베딩과 **같은 실행**의 `metrics`, `pred`, `timestep_f1` 푸시 (시드 0~4)
+- [ ] 이 섹션의 아래 표를 채우고, 사용한 하이퍼파라미터와 튜닝 방식(GCN, SAGE처럼 검증 PR-AUC로만 선택) 기입
+
+| 지표 (테스트 35~49, 시드 0~4 평균 ± 표준편차) | 임계값 0.5 | 검증 최적 |
+|---|---|---|
+| PR-AUC | (반영 후 기입) | (반영 후 기입) |
+| F1 | (반영 후 기입) | (반영 후 기입) |
+
+## 하이브리드 누수 처리:
 
 > **결정 (11/12):** 하이브리드(GNN 임베딩 + 원본 특징 → XGBoost)는 임베딩을 그대로 쓰지 않고 **OOF(Out-Of-Fold) 임베딩**으로 만든다.
 > 상태: 설계 확정, 코드는 구현 예정 (아래 [구현 계획](#6-구현-계획과-담당)).
@@ -227,12 +258,37 @@ python -m models.gcn --data-root data/elliptic                              # �
 - 학습 절차: Train(1~29)으로 학습하고 검증 PR-AUC로 조기 종료 → 같은 에폭 수로 Train+Val(1~34) 재학습 → 테스트 1회 평가 (XGBoost와 동일한 규칙).
 - 하이퍼파라미터는 계획서 4장 기본값(lr 0.005, weight decay 5e-4, 최대 300 에폭, patience 30, dropout 0.5)이고 `--lr`, `--dropout` 등으로 바꿀 수 있습니다.
 
+### 하이브리드 실행 (GCN 하이브리드 구현 완료)
+`hybrid/skip_gcn.py`가 `[원본 165 | GNN 임베딩 64]`을 XGBoost에 넣는 하이브리드와 대조군을 모두 처리합니다. GCN, SAGE, GAT 어느 임베딩이든 같은 코드이고 임베딩 파일만 있으면 됩니다.
+
+- **XGBoost 쪽은 베이스라인과 같은 프로토콜**입니다 (`baselines/xgb_baseline.py`의 함수를 그대로 사용). 설정은 베이스라인이 검증 PR-AUC로 고른 1등 설정(`results/xgb_tuning.csv`)으로 고정하고, Train 학습 + 검증 조기 종료 → Train+Val 재학습 → 테스트 1회 평가 순서도 같습니다.
+- 임베딩 시드 n ↔ XGBoost 시드 n으로 짝을 짓습니다 (시드 0~4).
+- 임베딩 파일은 `results/emb/emb_{model}_seed{n}.npy`에 두면 됩니다 (공유 드라이브에서 받기). **튜닝 후 최종 GNN의 임베딩인지 꼭 확인하세요.** 파일이 Git LFS 포인터이면 실행 시 안내 메시지가 나오니 `git lfs install` 후 `git lfs pull`을 하세요.
+
+| 목적 | 명령 (저장소 루트에서) | 결과 이름 |
+|---|---|---|
+| 지금 저장된 임베딩(누수 있음)으로 하이브리드 | `python -m hybrid.skip_gcn --emb-models gcn` | `hybrid_gcn_naive` |
+| OOF 임베딩으로 하이브리드 (`results/emb_oof/`) | `python -m hybrid.skip_gcn --emb-models gcn --emb-kind oof` | `hybrid_gcn` |
+| 임베딩만 입력한 대조군 | `python -m hybrid.skip_gcn --emb-models gcn --mode only` | `emb_only_gcn_naive` |
+| 세 모델 임베딩을 모두 이어 붙인 선택 실험 (165 + 64×3) | `python -m hybrid.skip_gcn --emb-models gcn sage gat` | `hybrid_all_naive` |
+| 원본만으로 돌려 베이스라인 재현 점검 | `python -m hybrid.skip_gcn --mode raw` | `xgb_check` |
+| 하이브리드 입력으로 재튜닝 (선택, 별도 표기) | `--retune-trials 30` 추가 | `..._retuned` |
+
+`--emb-dir 폴더경로`로 임베딩 폴더를 바꿀 수 있고, `--seeds 0`으로 시드 1개만 빠르게 돌려볼 수 있습니다. 시드 1개는 몇 초면 끝납니다.
+
+저장되는 것: `results/metrics/{이름}.csv` (split = **test / val / train**), `results/pred/pred_{이름}_seed{n}.npy`, `results/timestep_f1_{이름}.csv`, `results/hybrid_importance_{이름}.csv` (원본 vs 임베딩 gain 비중).
+`notes` 열에 트리 수와 GNN 쪽 학습·추론 시간(`gnn_train_sec`, `gnn_infer_sec`)이 같이 적혀 비용을 합쳐서 비교할 수 있습니다.
+
+**결과 읽는 법:** 실행이 끝나면 train / val / test PR-AUC와 격차, xgb 대비 차이가 한 번에 출력됩니다. 누수(naive 임베딩)가 점수를 얼마나 부풀렸는지는 **같은 방식으로 `--mode raw`를 돌린 `xgb_check`의 격차와 비교**해야 의미가 있습니다 (XGBoost는 원래 학습 점수가 1에 가깝고, 시간에 따른 분포 변화 때문에 val − test도 원래 큽니다). 비교 기준은 항상 **테스트 점수**입니다.
+
+점검: `pytest -q tests/test_hybrid.py` (가짜 데이터로 12개 항목, `--mode raw`가 베이스라인 점수를 그대로 재현하는지 포함).
+
 ## 구조
 ```
 common/        data.py (로더·분할) / metrics.py (평가) / utils.py (시드·시간·저장) / train_gnn.py (GNN 공통 학습 루프)
 baselines/     xgb_baseline.py
-models/        gcn.py ✅ / (GNN 조) sage.py gat.py
-hybrid/        (합치기 단계) make_oof_emb.py (OOF 임베딩) / skip_gcn.py
+models/        gcn.py ✅ / sage.py (sage 브랜치, 병합 대기) / gat.py (GAT 조, 미반영)
+hybrid/        skip_gcn.py ✅ (하이브리드·대조군) / (예정) make_oof_emb.py (OOF 임베딩)
 analysis/      (합치기 단계) shap_compare.py error_analysis.py
 scripts/       verify_data.py, collect_results.py, make_synthetic.py
 tests/         pytest -q  (가짜 Elliptic 형식 데이터로 공통 기반 검증)

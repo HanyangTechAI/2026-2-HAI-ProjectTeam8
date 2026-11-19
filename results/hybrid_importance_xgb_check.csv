@@ -1,0 +1,6 @@
+model,seed,group,n_features,n_used,gain_share
+xgb_check,0,raw,165,158,1.0
+xgb_check,1,raw,165,161,1.0
+xgb_check,2,raw,165,159,1.0
+xgb_check,3,raw,165,162,1.0
+xgb_check,4,raw,165,153,1.0

@@ -1,0 +1,5 @@
+하이브리드(GCN) 결과 환경 메모 (xgb_check / hybrid_gcn_naive / hybrid_gcn 세 결과는 모두 같은 환경에서 생성)
+- 생성일: 2026-11-18 (클라우드 리눅스, CPU), xgboost 3.4.1 (공식 Colab 베이스라인과 같은 버전), 표준화 피처
+- GCN: 튜닝 후 설정 (lr 0.01, dropout 0.5, wd 5e-4, hidden 64), 시드 0~4, 시드별 best_epoch 144/167/203/306/224
+- OOF 임베딩: python -m hybrid.make_oof_emb --model gcn ... (5개 시간 블록). 임베딩 파일(52MB x5)은 용량 때문에 git에 올리지 않음 (공유 드라이브)
+- 최종 보고서 숫자는 Colab 단일 환경 재실행(notebooks/colab_hybrid.ipynb)으로 확정 예정 -> 그때 이 파일들을 덮어쓴다
