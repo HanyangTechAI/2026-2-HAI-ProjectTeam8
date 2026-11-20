@@ -34,7 +34,6 @@ model 이름: `xgb`, `gcn`, `sage`, `gat`, 하이브리드는 `hybrid_gcn` 등. 
   from torch_geometric.datasets import EllipticBitcoinDataset
   EllipticBitcoinDataset(root="data/elliptic")   # raw CSV가 data/elliptic/raw 에 저장됨
   ```
-  (저장 위치는 PyG 버전에 따라 다를 수 있으니 CSV 3개가 어디에 생겼는지 확인하세요.)
 
 ## 실행 환경
 
