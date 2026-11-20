@@ -201,14 +201,6 @@ SAGE 조의 `analysis/shap_compare.py`를 **그대로** GCN에 적용했습니�
 | 하이브리드 – OOF 확률 | 58.4% ± 1.5% | 26.7% ± 2.0% | 14.9% ± 1.6% |
 | 하이브리드 – 누수 임베딩 | 19.4% ± 1.1% | 7.2% ± 0.8% | 73.4% ± 1.8% |
 
-- 피처 그룹은 Weber et al. (2019) 기준입니다 (시간 단계 열 제외): 0~92번 = 거래 자체 정보(local), 93~164번 = 1-hop 이웃 거래 집계(agg). 임베딩의 각 차원은 의미가 없으므로 64개를 합산해서 봅니다.
-- **누수 임베딩은 판단의 73%를 임베딩에 의존**하고, 상위 20개 피처 중 18개가 임베딩입니다 → 학습 라벨이 새겨진 임베딩에 기대는 현상 (테스트 PR-AUC 0.724).
-- **OOF 임베딩은 비중 30%** 이며, 상위 20개 중 임베딩은 4개뿐이고 원본 피처 16개 중 13개가 XGBoost 원본만 쓴 모델의 상위 20개와 겹칩니다 (`local_52·57·58`, `agg_31` 등이 상위권 유지).
-- 임베딩이 원본 피처의 기여도를 일부 대신 가져갔습니다 (평균 |SHAP| 합계: local 7.87 → 6.35, −19% / agg 3.26 → 3.00, −8%). 새 정보를 더하기보다 같은 정보를 다시 담은 것으로 보이며, 임베딩 비중이 30%인데도 PR-AUC가 거의 오르지 않는 점(+0.0036)과 일관됩니다. 다만 이는 해석이며 추가 확인이 필요합니다.
-- OOF 확률 1열(`gnn_prob`)은 단독으로 평균 |SHAP| 1.69로 가장 중요한 피처입니다. 한 열이 GNN 정보를 압축해 전달합니다.
-- **SAGE와 비교:** 누수 임베딩의 의존도는 GCN 73% / SAGE 93%로 SAGE가 더 높고, OOF 임베딩은 GCN 30% / SAGE 32%로 비슷합니다. 임베딩이 가져간 원본 피처 기여는 GCN(local −19%, agg −8%)이 SAGE(−32%, −18%)보다 작습니다.
-- 주의: SHAP 비중은 "모델이 무엇에 기댔는가"를 보여 주며, 정보가 겹치는 피처끼리는 기여도를 나눠 갖습니다. **위 하이브리드 결과의 gain 기준 비중(OOF 임베딩 74%)과는 측정 방법이 다른 숫자**이므로 서로 비교하지 마세요. 상위 20개 그래프는 모델마다 x축 범위가 다릅니다.
-- 실행 환경: 클라우드 CPU, xgboost 3.4.1, **표준화한 피처**로 계산했습니다 (트리 모델은 단조 변환에 영향을 거의 받지 않지만 완전히 같지는 않습니다). SAGE 조는 원본 피처를 썼습니다. OOF 임베딩은 이 저장소의 `hybrid/make_oof_emb.py`(Procrustes 정렬) 결과이고, OOF 확률은 SAGE 조 방식(1~34는 자기 폴드가 빠진 모델의 확률, 35~49는 폴드 모델 평균)으로 새로 만들었습니다.
 
 ![GCN SHAP 그룹별 비중](results/shap/gcn/group_share.png)
 
@@ -220,7 +212,5 @@ SAGE 조의 `analysis/shap_compare.py`를 **그대로** GCN에 적용했습니�
 | `analysis/shap_compare.py` | 실행 코드 (SAGE 조 PR에서 main에 포함, `python -m analysis.shap_compare --gnn gcn --oof-dir <OOF 임베딩·확률 위치>`) |
 | `results/shap/gcn/group_share.csv` | 모델·시드별 그룹 비중, 트리 수 |
 | `results/shap/gcn/top20.csv`, `feature_importance.csv` | 모델별 피처 기여도 (시드 평균, 순위 포함) |
-| `results/shap/gcn/group_share.png`, `top20.png` | 그래프 (발표 자료용) |
 
-OOF 임베딩·확률 파일은 용량 때문에 git에 포함하지 않았습니다. 이 스크립트는 `oofemb_gcn_seed{n}.npy`, `oofprob_gcn_seed{n}.npy`를 읽으며, 임베딩은 `hybrid/make_oof_emb.py` 결과 파일 이름을 `oofemb_gcn_seed{n}.npy`로 바꿔 쓰면 됩니다.
 
