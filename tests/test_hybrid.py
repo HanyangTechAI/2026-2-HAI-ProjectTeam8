@@ -1,4 +1,4 @@
-"""하이브리드(hybrid/skip_gcn.py) 테스트: 가짜 Elliptic 데이터 + 가짜 임베딩.  실행: pytest -q tests/test_hybrid.py"""
+"""하이브리드(hybrid/run_hybrid.py) 테스트: 가짜 Elliptic 데이터 + 가짜 임베딩.  실행: pytest -q tests/test_hybrid.py"""
 import sys
 from pathlib import Path
 
@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from baselines import xgb_baseline  # noqa: E402
 from common.data import load_data  # noqa: E402
-from hybrid import skip_gcn  # noqa: E402
+from hybrid import run_hybrid  # noqa: E402
 from scripts.make_synthetic import make_synthetic  # noqa: E402
 
 
@@ -54,13 +54,13 @@ def emb_dir(tmp_path_factory, data):
 
 
 def run(synth, tuning_csv, out, *extra):
-    skip_gcn.main(["--data-root", str(synth), "--tuning-csv", str(tuning_csv), "--results-dir", str(out),
+    run_hybrid.main(["--data-root", str(synth), "--tuning-csv", str(tuning_csv), "--results-dir", str(out),
                    "--n-jobs", "1", *extra])
 
 
 # ---------- 설정·이름 ----------
 def test_default_names():
-    f = skip_gcn.default_name
+    f = run_hybrid.default_name
     assert f("hybrid", ["gcn"], "naive", False) == "hybrid_gcn_naive"
     assert f("hybrid", ["gcn"], "oof", False) == "hybrid_gcn"
     assert f("only", ["sage"], "oof", False) == "emb_only_sage"
@@ -71,7 +71,7 @@ def test_default_names():
 
 
 def test_baseline_params_use_best_val_row(tuning_csv):
-    p = skip_gcn.load_baseline_params(tuning_csv)
+    p = run_hybrid.load_baseline_params(tuning_csv)
     assert p["max_depth"] == 3 and isinstance(p["max_depth"], int)
     assert p["min_child_weight"] == 1 and isinstance(p["min_child_weight"], int)
     assert p["learning_rate"] == 0.3 and p["colsample_bytree"] == 1.0
@@ -80,11 +80,11 @@ def test_baseline_params_use_best_val_row(tuning_csv):
 
 def test_baseline_params_missing_file_and_columns(tmp_path):
     with pytest.raises(FileNotFoundError):
-        skip_gcn.load_baseline_params(tmp_path / "nope.csv")
+        run_hybrid.load_baseline_params(tmp_path / "nope.csv")
     bad = tmp_path / "bad.csv"
     pd.DataFrame({"max_depth": [3]}).to_csv(bad, index=False)
     with pytest.raises(ValueError):
-        skip_gcn.load_baseline_params(bad)
+        run_hybrid.load_baseline_params(bad)
 
 
 # ---------- 하이브리드 실행 ----------
@@ -158,7 +158,7 @@ def test_retune_option(synth, tuning_csv, emb_dir, tmp_path):
 # ---------- 베이스라인과 같은 프로토콜인가 ----------
 def test_raw_mode_reproduces_the_baseline_exactly(synth, data, tuning_csv, tmp_path):
     """--mode raw는 임베딩 없이 베이스라인과 같은 입력이므로, 같은 설정·시드면 점수가 똑같이 나와야 한다."""
-    params = skip_gcn.load_baseline_params(tuning_csv)
+    params = run_hybrid.load_baseline_params(tuning_csv)
     base_rows = xgb_baseline.run_seed(data, params, 0, 1, tmp_path / "base")
     run(synth, tuning_csv, tmp_path / "chk", "--mode", "raw", "--seeds", "0")
     chk = pd.read_csv(tmp_path / "chk" / "metrics" / "xgb_check.csv", dtype={"threshold_type": str})
@@ -191,17 +191,17 @@ def test_load_embedding_rejects_lfs_pointer_wrong_shape_and_nan(tmp_path):
     pointer = tmp_path / "ptr.npy"
     pointer.write_text("version https://git-lfs.github.com/spec/v1\noid sha256:abc\nsize 52164992\n")
     with pytest.raises(RuntimeError, match="LFS"):
-        skip_gcn.load_embedding(pointer, 10)
+        run_hybrid.load_embedding(pointer, 10)
     wrong = tmp_path / "wrong.npy"
     np.save(wrong, np.zeros((9, 64), dtype=np.float32))
     with pytest.raises(ValueError, match="모양"):
-        skip_gcn.load_embedding(wrong, 10)
+        run_hybrid.load_embedding(wrong, 10)
     bad = tmp_path / "nan.npy"
     arr = np.zeros((10, 64), dtype=np.float32)
     arr[3, 5] = np.nan
     np.save(bad, arr)
     with pytest.raises(ValueError, match="NaN"):
-        skip_gcn.load_embedding(bad, 10)
+        run_hybrid.load_embedding(bad, 10)
     ok = tmp_path / "ok.npy"
     np.save(ok, np.ones((10, 64), dtype=np.float32))
-    assert skip_gcn.load_embedding(ok, 10).shape == (10, 64)
+    assert run_hybrid.load_embedding(ok, 10).shape == (10, 64)

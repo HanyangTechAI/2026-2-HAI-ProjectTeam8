@@ -22,7 +22,7 @@
   python -m hybrid.make_oof_emb --model gcn --lr 0.01 --dropout 0.5 --weight-decay 5e-4 --seeds 0 1 2 3 4
   python -m hybrid.make_oof_emb --model gcn --best-epochs 144 167 203 306 224 ...   # 에폭 수를 직접 지정
 그 다음:
-  python -m hybrid.skip_gcn --emb-models gcn --emb-kind oof
+  python -m hybrid.run_hybrid --emb-models gcn --emb-kind oof
 """
 from __future__ import annotations
 

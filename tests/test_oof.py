@@ -18,7 +18,7 @@ import torch  # noqa: E402
 from common.data import load_data, to_pyg  # noqa: E402
 from common.train_gnn import main as gnn_main  # noqa: E402
 from hybrid import make_oof_emb as oof  # noqa: E402
-from hybrid import skip_gcn  # noqa: E402
+from hybrid import run_hybrid  # noqa: E402
 from models.gcn import GCN  # noqa: E402
 from scripts.make_synthetic import make_synthetic  # noqa: E402
 
@@ -133,7 +133,7 @@ def test_cli_end_to_end_and_hybrid_can_read_the_result(synth, ref_dir, tmp_path)
     tune = tmp_path / "tune.csv"
     pd.DataFrame([dict(max_depth=3, learning_rate=0.3, min_child_weight=1, subsample=1.0, colsample_bytree=1.0,
                        val_pr_auc=0.9, best_iteration=10)]).to_csv(tune, index=False)
-    skip_gcn.main(["--data-root", str(synth), "--tuning-csv", str(tune), "--results-dir", str(tmp_path / "res"),
+    run_hybrid.main(["--data-root", str(synth), "--tuning-csv", str(tune), "--results-dir", str(tmp_path / "res"),
                    "--n-jobs", "1", "--emb-models", "gcn", "--emb-kind", "oof", "--emb-dir", str(out), "--seeds", "0"])
     m = pd.read_csv(tmp_path / "res" / "metrics" / "hybrid_gcn.csv", dtype={"threshold_type": str})
     assert set(m["split"]) == {"test", "val", "train"}

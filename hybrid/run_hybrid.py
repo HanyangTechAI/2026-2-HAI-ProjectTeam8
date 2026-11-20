@@ -11,17 +11,17 @@ XGBoost 쪽은 베이스라인과 **완전히 같은 프로토콜**이다 (basel
 
 실행 예 (저장소 루트에서):
   # 1) 지금 저장된 임베딩(Train+Val 정답을 본 GNN에서 나온 것, 누수 있음)으로 하이브리드  → hybrid_gcn_naive
-  python -m hybrid.skip_gcn --emb-models gcn --seeds 0 1 2 3 4
+  python -m hybrid.run_hybrid --emb-models gcn --seeds 0 1 2 3 4
   # 2) OOF 임베딩(results/emb_oof/emb_oof_gcn_seed{n}.npy)으로 하이브리드                → hybrid_gcn
-  python -m hybrid.skip_gcn --emb-models gcn --emb-kind oof
+  python -m hybrid.run_hybrid --emb-models gcn --emb-kind oof
   # 3) 임베딩만 입력한 대조군                                                            → emb_only_gcn_naive
-  python -m hybrid.skip_gcn --emb-models gcn --mode only
+  python -m hybrid.run_hybrid --emb-models gcn --mode only
   # 4) 세 모델 임베딩을 전부 이어 붙인 선택 실험 (165 + 64×3)                            → hybrid_all_naive
-  python -m hybrid.skip_gcn --emb-models gcn sage gat
+  python -m hybrid.run_hybrid --emb-models gcn sage gat
   # 5) 파이프라인 점검: 원본 피처만으로 돌려서 xgb 베이스라인 숫자가 그대로 재현되는지 확인 → xgb_check
-  python -m hybrid.skip_gcn --mode raw
+  python -m hybrid.run_hybrid --mode raw
   # 임베딩 폴더가 다를 때 (예: 드라이브에서 받은 폴더)
-  python -m hybrid.skip_gcn --emb-models gcn --emb-dir ~/Downloads/emb
+  python -m hybrid.run_hybrid --emb-models gcn --emb-dir ~/Downloads/emb
 
 저장: results/metrics/{name}.csv (split = test / val / train), results/pred/pred_{name}_seed{n}.npy,
       results/timestep_f1_{name}.csv, results/hybrid_importance_{name}.csv (그룹별 gain 비중)
