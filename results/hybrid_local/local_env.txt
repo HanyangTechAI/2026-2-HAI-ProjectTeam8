@@ -1,0 +1,8 @@
+local 93 피처 실험 환경
+- 생성일: 2026-11-25 / 저장소 main d85dca7 (+ hybrid/local_only.py)
+- GPU: GPU 0: Tesla T4 (UUID: GPU-cbffafaa-1339-b079-bf45-7c6ba7109b53)
+- torch 2.14.1+cu130 / torch_geometric 2.8.1 / xgboost 3.4.1
+- GNN 설정: {'gcn': {'lr': 0.01, 'dropout': 0.5, 'wd': 0.0005}, 'sage': {'lr': 0.005, 'dropout': 0.3, 'wd': 0.001}, 'gat': {'lr': 0.01, 'dropout': 0.3, 'wd': 0.0005}}, patience 100, 최대 500 에폭
+- GNN 단독 소요(분): {'gcn': 4.3, 'sage': 3.4, 'gat': 5.2}
+- OOF 소요(분): {'gcn': 4.7, 'sage': 3.9, 'gat': 6.8}
+- hybrid_all_full 포함: True

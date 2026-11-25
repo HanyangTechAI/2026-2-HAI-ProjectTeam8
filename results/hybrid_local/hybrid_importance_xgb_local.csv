@@ -1,0 +1,6 @@
+model,seed,group,n_features,n_used,gain_share
+xgb_local,0,raw,93,90,1.0
+xgb_local,1,raw,93,91,1.0
+xgb_local,2,raw,93,87,1.0
+xgb_local,3,raw,93,90,1.0
+xgb_local,4,raw,93,91,1.0

@@ -1,0 +1,11 @@
+model,seed,group,n_features,n_used,gain_share
+hybrid_gat_local_naive,0,raw,93,82,0.1864294799852239
+hybrid_gat_local_naive,0,gat,64,64,0.813570520014776
+hybrid_gat_local_naive,1,raw,93,84,0.175284419452026
+hybrid_gat_local_naive,1,gat,64,64,0.824715580547974
+hybrid_gat_local_naive,2,raw,93,88,0.2502426432563662
+hybrid_gat_local_naive,2,gat,64,64,0.7497573567436339
+hybrid_gat_local_naive,3,raw,93,82,0.2211855601872319
+hybrid_gat_local_naive,3,gat,64,64,0.778814439812768
+hybrid_gat_local_naive,4,raw,93,85,0.1539807142318969
+hybrid_gat_local_naive,4,gat,64,64,0.8460192857681031
