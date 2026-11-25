@@ -1,0 +1,11 @@
+model,seed,group,n_features,n_used,gain_share
+hybrid_sage_naive,0,raw,165,43,0.0119973752203358
+hybrid_sage_naive,0,sage,64,43,0.9880026247796642
+hybrid_sage_naive,1,raw,165,79,0.0385380603350474
+hybrid_sage_naive,1,sage,64,55,0.9614619396649526
+hybrid_sage_naive,2,raw,165,84,0.0337050277615169
+hybrid_sage_naive,2,sage,64,53,0.966294972238483
+hybrid_sage_naive,3,raw,165,34,0.0040706384661967
+hybrid_sage_naive,3,sage,64,40,0.9959293615338032
+hybrid_sage_naive,4,raw,165,59,0.026891764702726775
+hybrid_sage_naive,4,sage,64,46,0.9731082352972732

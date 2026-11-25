@@ -146,5 +146,9 @@ def test_wrong_inputs_fail_clearly(synth, ref_dir, tmp_path):
     with pytest.raises(FileNotFoundError, match="기준 임베딩"):
         oof.main(["--model", "gcn", "--data-root", str(synth), "--seeds", "0", "--best-epochs", "5",
                   "--ref-emb-dir", str(tmp_path / "none"), "--out-dir", str(tmp_path / "o"), "--cpu"])
-    with pytest.raises(SystemExit, match="gat"):                          # GAT 코드가 저장소에 없을 때
-        oof.get_factory("gat")
+    # GAT: models/gat.py가 있으면 GAT를 만들고 (PR #5 이후), 없으면 분명한 SystemExit
+    if (Path(__file__).resolve().parents[1] / "models" / "gat.py").exists():
+        assert type(oof.get_factory("gat")(16, ARGS)).__name__ == "GAT"
+    else:
+        with pytest.raises(SystemExit, match="gat"):
+            oof.get_factory("gat")
