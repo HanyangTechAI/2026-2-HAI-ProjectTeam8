@@ -1,0 +1,6 @@
+model,seed,group,n_features,n_used,gain_share
+xgb_full,0,raw,165,162,1.0
+xgb_full,1,raw,165,160,1.0
+xgb_full,2,raw,165,161,1.0
+xgb_full,3,raw,165,159,1.0
+xgb_full,4,raw,165,161,1.0

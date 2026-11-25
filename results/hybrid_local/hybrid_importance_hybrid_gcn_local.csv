@@ -1,0 +1,11 @@
+model,seed,group,n_features,n_used,gain_share
+hybrid_gcn_local,0,raw,93,89,0.3507281212779939
+hybrid_gcn_local,0,gcn,64,64,0.6492718787220061
+hybrid_gcn_local,1,raw,93,90,0.2603109267557583
+hybrid_gcn_local,1,gcn,64,64,0.7396890732442417
+hybrid_gcn_local,2,raw,93,92,0.3031497718713425
+hybrid_gcn_local,2,gcn,64,64,0.6968502281286575
+hybrid_gcn_local,3,raw,93,91,0.2376365500841179
+hybrid_gcn_local,3,gcn,64,64,0.7623634499158821
+hybrid_gcn_local,4,raw,93,87,0.28716769024075234
+hybrid_gcn_local,4,gcn,64,64,0.7128323097592477
