@@ -7,8 +7,8 @@ XGBoost vs GCN · GraphSAGE · GAT 비교, 그리고 Skip-GCN 하이브리드. �
 - 일정: 11/1 공통 기반 완료 ✅ → 11/12 모델 3종 구현 → 11/19 합치기 → 11/26 마무리 → 11/29 최종 발표
 - 합치기 방식 결정(11/12): 하이브리드는 **OOF 임베딩**으로 누수를 막고 만든다 → [하이브리드 누수 처리](#하이브리드-누수-처리-oof-임베딩-방식-b)
 - 하이브리드(GCN) 결과: 누수 있음 0.724 → **OOF 0.804** (원본만 0.800) → [GCN 하이브리드 결과](#3-gcn-하이브리드-결과-시드-04)
-- GAT: 임베딩만 반영됨(Git LFS), 지표·코드는 반영 대기 → [GAT 결과](#gat-결과-임베딩만-반영-지표-반영-대기)
-- 현재 상태 (11/24): 공통 기반, XGBoost 기준선, GCN(튜닝 후), GraphSAGE 결과와 **GCN·SAGE 하이브리드(OOF 누수 처리)·SHAP 비교까지 main에 합쳐졌습니다.** 남은 것: GAT 지표·코드 반영, GCN/SAGE 하이브리드를 같은 환경에서 다시 돌려 수치 통일, 최종 비교표와 오류 분석. GNN 단독은 XGBoost(PR-AUC 0.802)보다 낮고(GCN 0.662, SAGE 0.624), 누수를 막은 하이브리드는 XGBoost와 동급(0.804 vs 0.800)입니다. 하이브리드 수치는 GCN(클라우드 CPU)과 SAGE(Mac CPU)의 실행 환경·OOF 세부 방식이 달라 서로 직접 비교하지 않습니다.
+- GAT: 단독 PR-AUC 0.463, 하이브리드 누수 있음 0.665 → **OOF 0.787** (원본만 0.802, 시드 5개 모두 기준선보다 낮음) → [GAT 결과](#gat-결과)
+- 현재 상태 (11/24): 공통 기반, XGBoost 기준선, GCN(튜닝 후), GraphSAGE 결과와 **GCN·SAGE 하이브리드(OOF 누수 처리)·SHAP 비교까지 main에 합쳐졌습니다.** GAT 코드·지표·하이브리드·SHAP은 11/25 반영. 남은 것: GCN/SAGE 하이브리드를 같은 환경에서 다시 돌려 수치 통일, 최종 비교표와 오류 분석. GNN 단독은 XGBoost(PR-AUC 0.802)보다 낮고(GCN 0.662, SAGE 0.624, GAT 0.463), 누수를 막은 하이브리드는 XGBoost와 동급(0.804 vs 0.800)입니다. 하이브리드 수치는 GCN(클라우드 CPU)과 SAGE(Mac CPU)의 실행 환경·OOF 세부 방식이 달라 서로 직접 비교하지 않습니다.
 
 ## 규칙 (모든 조 필수)
 1. 데이터는 `common.data.load_data()`, 평가는 `common.metrics`, 저장은 `common.utils`만 사용합니다. 직접 구현 금지.
@@ -354,9 +354,97 @@ XGBoost 원본만 / 하이브리드 3종에 `TreeExplainer`를 적용해, 테스
 
 OOF 임베딩(`oofemb_sage_seed{n}.npy`, 시드당 52MB)은 git에 포함하지 않았습니다. `python -m hybrid.skip_gcn --gnn sage`로 다시 만들 수 있습니다 (시드는 고정되지만, 실행 환경(CPU/GPU)이 다르면 GNN 결과가 소수점 수준에서 달라질 수 있습니다).
 
-## GAT 결과 (임베딩만 반영, 지표 반영 대기)
+## GAT 결과
 
-`results/emb/emb_gat_seed{0~4}.npy`(64차원 임베딩)만 저장소에 올라와 있습니다. GAT 모델 코드(`models/gat.py`)와 지표(`results/metrics/gat.csv`)는 아직 없어서 이 README와 포스터의 GAT 칸은 비어 있습니다. 반영되면 위 GCN·GraphSAGE 결과와 같은 형식으로 채웁니다.
+테스트 구간(시간 단계 35~49), 시드 0~4 평균 ± 표준편차. 학습·평가 절차는 XGBoost·GCN·GraphSAGE와 같습니다 (Train 학습 + 검증 조기 종료 → Train+Val 재학습 → 테스트 1회 평가). **환경: Colab T4 GPU.** 실행 노트북: `notebooks/colab_gat_poster.ipynb`.
+
+| 지표 | 임계값 0.5 | 검증 구간 최적 임계값 | 설명 |
+|---|---|---|---|
+| PR-AUC | 0.463 ± 0.058 | 0.463 ± 0.058 | **주 지표.** 임계값과 무관 (XGBoost 0.802) |
+| ROC-AUC | 0.863 ± 0.011 | 0.863 ± 0.011 | 보조 지표 (XGBoost 0.937) |
+| Precision | 0.481 ± 0.012 | 0.559 ± 0.050 | 불법이라고 예측한 것 중 진짜 불법의 비율 |
+| Recall | 0.586 ± 0.050 | 0.354 ± 0.053 | 진짜 불법 중 잡아낸 비율 |
+| **F1 (불법)** | **0.527 ± 0.020** | **0.433 ± 0.054** | 정밀도와 재현율의 조화평균 (XGBoost 0.775 / 0.797) |
+
+```bash
+python -m models.gat --data-root data/elliptic --seeds 0 1 2 3 4 --heads 8 --lr 0.01 --dropout 0.3 --weight-decay 5e-4 --patience 100 --max-epochs 500
+```
+
+- 설정: 2층 GAT(`GATConv`, heads 8 × 헤드당 8차원 = 64차원 임베딩) + 선형 분류기, full-batch 학습, `dropout=0.3`(어텐션 계수에도 적용), Adam `lr=0.01`, `weight_decay=5e-4`, 최대 500 에폭, 검증 PR-AUC 기준 조기 종료(`patience=100`), 클래스 가중치는 학습 구간 정상/불법 비. 파라미터 15,170개.
+- 시드별 테스트 PR-AUC는 0.456 / 0.415 / 0.542 / 0.500 / 0.403이고, 조기 종료 시점(best_epoch)은 121 / 283 / 162 / 197 / 122입니다. 학습 14.4 ± 5.7초 · 추론 0.074초 (T4).
+- **검증 PR-AUC는 0.931 ± 0.007로 GCN(0.893)보다 높지만 테스트는 0.463으로 가장 낮습니다.** 검증 최적 임계값도 0.92~0.97로 매우 높아, 검증 구간에 맞춘 판단이 테스트로 잘 옮겨지지 않았습니다.
+- **테스트 구간 분리:** PR-AUC 35~42 구간 0.559 ± 0.069, 43~49 구간 0.037 ± 0.002 (XGBoost 0.921 / 0.046, GCN 0.782 / 0.040). 시간 단계별 평균 F1은 0.424 / 0.045 (`results/timestep_f1_gat.csv`).
+- **재현 주의:** 저장소의 기준 임베딩(`results/emb/emb_gat_seed{n}.npy`)을 만든 원래 실행의 best_epoch는 100 / 330 / 159 / 405 / 122였습니다. 원래 실행의 지표 파일이 시드 0만 남아 있어 같은 설정으로 다시 학습했고, 위 표는 이 재학습 결과입니다 (GPU 연산 순서 차이로 시드 4만 같은 에폭). 아래 하이브리드는 원래 실행의 임베딩·에폭을 씁니다.
+
+### GAT 하이브리드 (OOF 누수 처리, 시드 0~4)
+
+GCN과 **같은 코드·절차**(`hybrid/make_oof_emb.py` → `hybrid/run_hybrid.py`, 방식 B)를 GAT에 적용했습니다. **환경: Colab T4 GPU (GAT), XGBoost는 CPU.** 실행 노트북: `notebooks/colab_gat_oof.ipynb`.
+
+- 폴드 학습 에폭 = 원래 실행의 시드별 best_epoch 100, 330, 159, 405, 122 (`--best-epochs`로 직접 지정).
+- `models/gat.py`의 heads 기본값은 8입니다 (`make_oof_emb.py`가 `GAT(in_dim, hidden, dropout)`만 넘기므로 기본값이 쓰임).
+
+```bash
+python -m hybrid.make_oof_emb --model gat --lr 0.01 --dropout 0.3 --weight-decay 5e-4 --best-epochs 100 330 159 405 122
+python -m hybrid.run_hybrid --mode raw                        # xgb_check
+python -m hybrid.run_hybrid --emb-models gat                  # hybrid_gat_naive
+python -m hybrid.run_hybrid --emb-models gat --emb-kind oof   # hybrid_gat
+```
+
+| 입력 | 테스트 PR-AUC | 검증 PR-AUC |
+|---|---|---|
+| 원본 165개만 (`xgb_check`, 이 실행 환경) | 0.8021 ± 0.0021 | 0.9885 |
+| 원본 + 임베딩, **누수 있음** (`hybrid_gat_naive`) | 0.6654 ± 0.0221 | 0.9973 |
+| 원본 + **OOF 임베딩** (`hybrid_gat`) | **0.7871 ± 0.0060** | 0.9880 |
+
+| 시드 | 기준선 (`xgb_check`) | 누수 있음 | OOF | OOF − 기준선 |
+|---|---|---|---|---|
+| 0 | 0.8041 | 0.6707 | 0.7812 | −0.0228 |
+| 1 | 0.8039 | 0.6584 | 0.7831 | −0.0208 |
+| 2 | 0.8020 | 0.6653 | 0.7857 | −0.0164 |
+| 3 | 0.8016 | 0.6969 | 0.7888 | −0.0128 |
+| 4 | 0.7988 | 0.6357 | 0.7966 | −0.0022 |
+| **평균 ± 표준편차** | **0.8021 ± 0.0021** | 0.6654 ± 0.0221 | **0.7871 ± 0.0060** | **−0.0150 ± 0.0082** |
+
+| 입력 | 임계값 | F1 | 정밀도 | 재현율 |
+|---|---|---|---|---|
+| 원본만 | 0.5 | 0.775 ± 0.018 | 0.818 | 0.737 |
+| 원본만 | 검증 최적 | 0.797 ± 0.019 | 0.874 | 0.733 |
+| 누수 있음 | 0.5 | 0.643 ± 0.036 | 0.772 | 0.561 |
+| 누수 있음 | 검증 최적 | 0.641 ± 0.030 | 0.795 | 0.541 |
+| OOF | 0.5 | 0.769 ± 0.022 | 0.849 | 0.703 |
+| OOF | 검증 최적 | 0.784 ± 0.010 | 0.932 | 0.678 |
+
+- 이 실행의 `xgb_check`는 공식 `xgb` 베이스라인(0.802 ± 0.002)과 같은 값입니다. GCN 하이브리드 표의 `xgb_check`(0.8004)와는 실행 환경 차이로 조금 다르며, 저장소의 `xgb_check` 파일은 GCN 실행 것을 그대로 두었습니다.
+- 임베딩 vs 원본 피처의 기여 (XGBoost gain 비중, 시드 평균): 누수 있음 임베딩 86% / 원본 14%, OOF 임베딩 70% / 원본 30%.
+- OOF 진단 (`results/oof_report_gat.csv`): 정렬 후 코사인(라벨 없는 노드) 0.87~0.89, 정렬에 쓰지 않은 라벨 노드도 0.89~0.90으로 비슷 → 정렬이 라벨이 아니라 좌표축을 맞춘 것. 폴드 모델의 OOF PR-AUC는 8~34단계 폴드에서 0.90~0.95, 첫 폴드(1~7)만 0.38~0.44로 낮음.
+- **해석:** 누수를 막지 않으면 0.665로 크게 떨어집니다 (GCN 0.724보다 더 큼). OOF로 막으면 0.787까지 회복되지만, GCN·SAGE(+0.004)와 달리 **기준선보다 0.015 낮고 시드 5개 모두 기준선보다 낮습니다.** GAT 임베딩은 이 데이터에서 XGBoost에 도움이 되지 않았습니다. 정밀도는 오르고(0.874 → 0.932) 재현율은 내려가는(0.733 → 0.678) 패턴은 GCN·SAGE와 같습니다.
+- OOF 임베딩 파일(`emb_oof_gat_seed{n}.npy`, 시드당 52MB)은 git에 넣지 않았습니다. 위 명령으로 다시 만들 수 있습니다.
+
+### GAT SHAP 비교
+
+`analysis/shap_compare.py`를 GAT에 적용했습니다 (GCN·SAGE와 같은 방식, 테스트 노드 평균 |SHAP|, 시드 0~4 평균). GAT 방식 B에는 OOF 확률이 없어서 "OOF 확률" 한 줄만 뺀 복사본으로 실행했습니다 (`notebooks/colab_gat_poster.ipynb`, 원본 파일은 수정하지 않음).
+
+| 모델 | 자기 거래 정보 (local 93) | 이웃 집계 (agg 72) | GNN 출력 |
+|---|---|---|---|
+| XGBoost 원본만 | 70.4% ± 2.8% | 29.6% ± 2.8% | — |
+| 하이브리드 – OOF 임베딩 | 43.0% ± 1.5% | 19.6% ± 0.9% | 37.3% ± 2.2% |
+| 하이브리드 – 누수 임베딩 | 18.7% ± 2.0% | 7.9% ± 2.1% | 73.4% ± 3.9% |
+
+- 누수 임베딩은 판단의 73%를 임베딩에 기댔고(GCN 73%, SAGE 93%), OOF 임베딩은 37%로 셋 중 가장 크지만 점수는 기준선보다 낮습니다. 임베딩에 더 기댔는데 도움이 되지 않았다는 뜻입니다.
+
+![GAT SHAP 그룹별 비중](results/shap/gat/group_share.png)
+
+![GAT SHAP 상위 20개 피처](results/shap/gat/top20.png)
+
+### GAT 결과 파일 위치
+| 파일 | 내용 |
+|---|---|
+| `models/gat.py` | 모델 코드 (heads 기본값 8) |
+| `results/metrics/gat.csv`, `results/pred/pred_gat_seed{n}.npy`, `results/timestep_f1_gat.csv` | GAT 단독 (재학습) |
+| `results/metrics/hybrid_gat.csv`, `hybrid_gat_naive.csv`, `results/pred/pred_hybrid_gat*_seed{n}.npy` | GAT 하이브리드 (OOF / 누수 있음) |
+| `results/timestep_f1_hybrid_gat*.csv`, `results/hybrid_importance_hybrid_gat*.csv`, `results/oof_report_gat.csv` | 시간 단계별 F1, gain 비중, OOF 진단 |
+| `results/shap/gat/` | SHAP 그룹 비중·피처 기여도·그래프 |
+| `notebooks/colab_gat_oof.ipynb`, `notebooks/colab_gat_poster.ipynb` | 하이브리드 / 단독·구간·SHAP 실행 노트북 |
 
 ## 모델 비교: XGBoost vs GCN
 
@@ -444,7 +532,7 @@ python -m models.gcn --data-root data/elliptic --lr 0.01 --dropout 0.5 --weight-
 ```
 common/        data.py (로더·분할) / metrics.py (평가) / utils.py (시드·시간·저장) / train_gnn.py (GNN 공통 학습 루프)
 baselines/     xgb_baseline.py
-models/        gcn.py ✅ sage.py ✅ / (GAT조) gat.py
+models/        gcn.py ✅ sage.py ✅ gat.py ✅
 hybrid/        run_hybrid.py (GCN 하이브리드, `--mode hybrid/only/raw`) / make_oof_emb.py (OOF 임베딩 생성) / skip_gcn.py (SAGE조 OOF 하이브리드)
 analysis/      shap_compare.py ✅ / (GAT조) error_analysis.py
 scripts/       verify_data.py, collect_results.py, make_synthetic.py
