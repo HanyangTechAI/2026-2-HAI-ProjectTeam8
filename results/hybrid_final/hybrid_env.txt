@@ -1,0 +1,6 @@
+하이브리드 최종 실행 환경 (이 폴더의 모든 결과는 이 한 번의 실행에서 생성)
+- 생성일: 2026-11-25 / 저장소 main d85dca7
+- GPU: GPU 0: Tesla T4 (UUID: GPU-6bc4ad81-b134-0b8c-3e8c-e6ac0d7a7cdb)
+- torch 2.14.1+cu130 / torch_geometric 2.8.1 / xgboost 3.4.1
+- GNN 설정(OOF): {'gcn': {'lr': 0.01, 'dropout': 0.5, 'wd': 0.0005, 'epochs': None}, 'sage': {'lr': 0.005, 'dropout': 0.3, 'wd': 0.001, 'epochs': None}, 'gat': {'lr': 0.01, 'dropout': 0.3, 'wd': 0.0005, 'epochs': [100, 330, 159, 405, 122]}}
+- OOF 소요(분): {'gcn': 3.9, 'sage': 3.5, 'gat': 8.1}
